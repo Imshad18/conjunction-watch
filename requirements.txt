@@ -1,0 +1,6 @@
+numpy
+scipy
+sgp4
+requests
+fastapi
+uvicorn[standard]

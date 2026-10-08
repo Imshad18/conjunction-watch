@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Conjunction Watch</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="base.css">
+  <link rel="stylesheet" href="style.css">
+  <script src="vendor/three.min.js"></script>
+  <script src="vendor/OrbitControls.js"></script>
+  <script src="vendor/satellite.min.js"></script>
+  <script src="vendor/topojson-client.min.js"></script>
+  <script src="vendor/plotly.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" class="logo"><circle cx="16" cy="16" r="7" fill="none" stroke="currentColor" stroke-width="1.6"/><ellipse cx="16" cy="16" rx="14" ry="5" fill="none" stroke="currentColor" stroke-width="1.2" transform="rotate(30 16 16)"/><ellipse cx="16" cy="16" rx="14" ry="5" fill="none" stroke="currentColor" stroke-width="1.2" transform="rotate(-30 16 16)"/></svg>
+      <div><h1>Conjunction Watch</h1><p>Satellite and debris close-approach screening</p></div>
+    </div>
+    <nav>
+      <span class="pill" id="elemPill">Elements: —</span>
+      <select id="runSelect" title="Screening run"></select>
+      <button class="btn small" id="themeBtn">Theme</button>
+    </nav>
+  </header>
+
+  <div class="page">
+    <section class="top">
+      <div class="card globe-card">
+        <div id="globe"></div>
+        <div class="globe-ui">
+          <div class="clock"><span id="simClock">—</span><span id="simNote" class="muted"></span></div>
+          <div class="tabs" id="speedTabs">
+            <button class="tab" data-s="1">1×</button><button class="tab on" data-s="60">60×</button>
+            <button class="tab" data-s="600">600×</button><button class="tab" data-s="now">Now</button>
+          </div>
+        </div>
+        <div class="legend" id="legend"></div>
+      </div>
+
+      <div class="side">
+        <div class="card">
+          <h2>Screening</h2>
+          <div class="form-row">
+            <label class="field">Window
+              <select id="optHours"><option value="6">6 h</option><option value="12">12 h</option><option value="24" selected>24 h</option><option value="48">48 h</option></select></label>
+            <label class="field">Miss distance
+              <select id="optThr"><option value="1">1 km</option><option value="2">2 km</option><option value="5" selected>5 km</option><option value="10">10 km</option></select></label>
+            <button class="btn primary" id="runBtn">Run</button>
+          </div>
+          <div id="jobBox" class="hidden">
+            <div class="bar" style="margin-top:12px"><div id="jobBar"></div></div>
+            <pre class="console" id="jobLog"></pre>
+          </div>
+          <p class="muted" id="runInfo" style="margin:10px 0 0"></p>
+        </div>
+
+        <div class="card" id="detail">
+          <h2>Selected conjunction</h2>
+          <p class="muted">Pick an event in the table below to see both orbits, the encounter geometry and the distance over time.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="metrics" id="metrics"></section>
+
+    <section class="card">
+      <div class="panel-title">
+        <h3>Conjunctions</h3>
+        <div class="filters">
+          <div class="tabs" id="catTabs">
+            <button class="tab on" data-c="all">All</button>
+            <button class="tab" data-c="nostarlink">Excl. Starlink–Starlink</button>
+            <button class="tab" data-c="debris">Debris / rocket body</button>
+            <button class="tab" data-c="starlink">Starlink–Starlink</button>
+          </div>
+          <input id="search" placeholder="Filter by name or NORAD id">
+        </div>
+      </div>
+      <div class="table-wrap"><table class="data-table" id="table"></table></div>
+      <div class="table-foot"><span class="muted" id="tableCount"></span><button class="btn small" id="moreBtn">Show more</button></div>
+    </section>
+
+    <section class="grid-2">
+      <div class="card"><div class="panel-title"><h3>Miss distance</h3><span>all conjunctions in the run</span></div><div id="missHist" class="plot"></div></div>
+      <div class="card"><div class="panel-title"><h3>Altitude</h3><span>where close approaches happen</span></div><div id="altHist" class="plot"></div></div>
+    </section>
+
+    <p class="muted footnote">Orbital elements: CelesTrak GP data (public catalogue from the US Space Force). Collision probabilities assume
+      a spherical position uncertainty that grows with element age; operators use covariance data that is not public, so treat Pc as an order-of-magnitude estimate.</p>
+  </div>
+  <div id="toast" class="toast hidden"></div>
+  <script src="app.js"></script>
+</body>
+</html>
