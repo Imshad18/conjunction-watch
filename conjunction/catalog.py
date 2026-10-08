@@ -13,6 +13,8 @@ MAX_AGE_S = 2 * 3600
 
 GROUPS = {
     "active": "Active satellites",
+    "stations": "Space stations",
+    "visual": "Brightest objects",
     "cosmos-2251-debris": "Cosmos 2251 debris",
     "iridium-33-debris": "Iridium 33 debris",
     "fengyun-1c-debris": "Fengyun-1C debris",

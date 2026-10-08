@@ -32,11 +32,24 @@
       <div class="card globe-card">
         <div id="globe"></div>
         <div class="globe-ui">
-          <div class="clock"><span id="simClock">—</span><span id="simNote" class="muted"></span></div>
-          <div class="tabs" id="speedTabs">
-            <button class="tab" data-s="1">1×</button><button class="tab on" data-s="60">60×</button>
-            <button class="tab" data-s="600">600×</button><button class="tab" data-s="now">Now</button>
+          <div class="finder">
+            <input id="findInput" placeholder="Find a satellite: ISS, Hubble, Starlink-1008, NORAD id" autocomplete="off">
+            <div id="findList" class="find-list hidden"></div>
           </div>
+          <div class="clock"><span id="simClock">—</span><span id="simNote" class="muted"></span></div>
+        </div>
+        <div id="labels"></div>
+        <div class="timebar">
+          <button class="icon-btn" id="tbBack" title="Back 10 minutes">−10m</button>
+          <button class="icon-btn play" id="tbPlay" title="Play / pause"></button>
+          <button class="icon-btn" id="tbFwd" title="Forward 10 minutes">+10m</button>
+          <select id="tbSpeed" title="Time warp">
+            <option value="-3600">−3600×</option><option value="-600">−600×</option><option value="-60">−60×</option><option value="-1">−1×</option>
+            <option value="1">1×</option><option value="10">10×</option><option value="60" selected>60×</option><option value="600">600×</option><option value="3600">3600×</option>
+          </select>
+          <input type="range" id="tbRange" min="0" max="1000" value="0" title="Drag through the screening window">
+          <span class="tb-rel mono" id="tbRel"></span>
+          <button class="icon-btn" id="tbNow" title="Jump to the current time">Now</button>
         </div>
         <div class="legend" id="legend"></div>
       </div>
@@ -57,6 +70,8 @@
           </div>
           <p class="muted" id="runInfo" style="margin:10px 0 0"></p>
         </div>
+
+        <div class="card hidden" id="tracked"></div>
 
         <div class="card" id="detail">
           <h2>Selected conjunction</h2>

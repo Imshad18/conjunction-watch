@@ -14,6 +14,11 @@ run.bat         # Windows
 
 Open http://localhost:8001. A 24-hour screening starts automatically on first launch.
 
+- Search any object by name or NORAD id (ISS, Hubble, Tiangong, Starlink-1008…) to highlight it, follow it and
+  list its upcoming close approaches. Links like `http://localhost:8001/#track=ISS,Hubble` open with objects tracked.
+- Time controls: play / pause, ±10 min, time warp from −3600× to 3600×, and a timeline across the screening window.
+- Click a conjunction to replay the encounter on the globe.
+
 ## How it works
 
 1. Downloads orbital elements from CelesTrak: active satellites plus the Cosmos 2251, Iridium 33,
