@@ -72,3 +72,7 @@
 .hover-tip { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--line-2); border-radius: 5px;
   padding: 3px 8px; font-size: 12px; white-space: nowrap; z-index: 4; }
 .hover-tip span { color: var(--muted); font: 11px var(--mono); }
+.right-ui { display: flex; gap: 8px; align-items: center; }
+.chip-t { display: inline-flex; align-items: center; gap: 4px; }
+.chip-x { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; padding: 0 0 0 4px; }
+.chip-x:hover { color: var(--fail); }

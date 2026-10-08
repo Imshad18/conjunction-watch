@@ -173,7 +173,9 @@ function initPicking() {
   el.addEventListener("pointerup", (e) => {
     if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4) return; // it was a drag
     const i = pickAt(e.clientX, e.clientY);
-    if (i >= 0) track(i);
+    if (i < 0) return;
+    const t = state.tracked.find((x) => x.i === i);
+    t ? untrack(t) : track(i);
   });
   const tip = document.createElement("div");
   tip.className = "hover-tip hidden";
@@ -211,7 +213,8 @@ $("#tbPlay").onclick = () => setPlaying(!state.playing);
 $("#tbBack").onclick = () => { state.sim -= 600e3; };
 $("#tbFwd").onclick = () => { state.sim += 600e3; };
 $("#tbSpeed").onchange = (e) => { state.speed = +e.target.value; setPlaying(true); };
-$("#tbNow").onclick = () => { state.sim = Date.now(); setSpeed(1); setPlaying(true); clearSelection(); };
+$("#tbNow").onclick = () => { state.sim = Date.now(); setSpeed(1); setPlaying(true); };
+$("#clearBtn").onclick = () => clearAll();
 $("#tbRange").addEventListener("input", (e) => {
   G.dragging = true;
   const [a, b] = runWindow();
@@ -270,7 +273,26 @@ function lookAt(vec, dist = 2.6) {
 
 function clearSelection() {
   G.selGroup.clear(); G.sel = null; $("#simNote").textContent = "";
+  if (state.selected) {
+    state.selected = null; renderTable();
+    $("#detail").innerHTML = `<h2>Selected conjunction</h2><p class="muted">Pick an event in the table below to see both orbits, the encounter geometry and the distance over time.</p>`;
+  }
+  updateClearBtn();
 }
+function clearAll() {
+  for (const t of [...state.tracked]) untrack(t);
+  clearSelection();
+  state.follow = false;
+}
+function updateClearBtn() {
+  const n = state.tracked.length + (G.sel ? 1 : 0);
+  const b = $("#clearBtn");
+  b.classList.toggle("hidden", n === 0);
+  b.textContent = `Clear all (${n}) · Esc`;
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && document.activeElement !== $("#findInput")) clearAll();
+});
 function showOnGlobe(ev) {
   G.selGroup.clear();
   const sa = satrecFor(ev.a), sb = satrecFor(ev.b);
@@ -358,13 +380,15 @@ function track(i) {
   const r = propagate(s, new Date(state.sim));
   if (r) lookAt(eciToVec(r.position), 2.2);
   renderTracked();
+  updateClearBtn();
   if (innerWidth < 1100) $("#tracked").scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 function untrack(t) {
   G.trackGroup.remove(t.mesh); if (t.line) G.trackGroup.remove(t.line);
   state.tracked = state.tracked.filter((x) => x !== t);
-  if (state.focus === t) state.focus = state.tracked[0] || null;
+  if (state.focus === t) { state.focus = state.tracked[0] || null; if (!state.focus) state.follow = false; }
   renderTracked();
+  updateClearBtn();
 }
 function updateTracked(d) {
   for (const t of state.tracked) {
@@ -394,14 +418,19 @@ function renderTracked() {
   const conj = state.run ? state.run.events.filter((e) => e.a === t.id || e.b === t.id).sort((a, b) => a.tca.localeCompare(b.tca)) : [];
   box.innerHTML = `
     <h2>Tracking</h2>
-    <div class="track-chips">${state.tracked.map((x, k) => `<span class="chip-t ${x === t ? "on" : ""}" data-k="${k}" style="--tc:${x.color}">${esc(x.name)}</span>`).join("")}</div>
+    <div class="track-chips">${state.tracked.map((x, k) => `<span class="chip-t ${x === t ? "on" : ""}" data-k="${k}" style="--tc:${x.color}">${esc(x.name)}<button class="chip-x" data-x="${k}" title="Stop tracking">×</button></span>`).join("")}
+      <button class="btn small" id="untrackAll">Clear all</button></div>
     <div class="track-head"><div><div class="n">${esc(t.name)}</div><div class="muted mono" style="font-size:12px">NORAD ${t.id} · ${t.kind} · i ${fmt(t.s.inclo * 180 / Math.PI, 1)}° · P ${fmt(2 * Math.PI / t.s.no, 1)} min</div></div>
       <div style="display:flex;gap:6px"><button class="btn small" id="followBtn">${state.follow ? "Unfollow" : "Follow"}</button><button class="btn small" id="untrackBtn">Remove</button></div></div>
     <table class="kv" id="trackStats"></table>
     <div class="conj-mini">${conj.length ? `<div style="cursor:default;color:var(--muted)"><span>Close approaches in this run</span><span>${conj.length}</span></div>`
       + conj.slice(0, 8).map((e) => `<div data-tca="${esc(e.tca)}" data-a="${e.a}" data-b="${e.b}"><span>${esc(name(e.a === t.id ? e.b : e.a))}</span><span class="mono">${e.miss_km < 1 ? fmt(e.miss_km * 1000, 0) + " m" : fmt(e.miss_km, 2) + " km"} · ${e.tca.slice(5, 16).replace("T", " ")}</span></div>`).join("")
       : `<div style="cursor:default;color:var(--muted)"><span>No close approaches under ${state.run ? state.run.threshold_km : "—"} km in this run</span><span></span></div>`}</div>`;
-  box.querySelector(".track-chips").onclick = (e) => { const c = e.target.closest("[data-k]"); if (c) { state.focus = state.tracked[+c.dataset.k]; state.follow = true; renderTracked(); } };
+  box.querySelector(".track-chips").onclick = (e) => {
+    if (e.target.dataset.x !== undefined) { untrack(state.tracked[+e.target.dataset.x]); return; }
+    if (e.target.id === "untrackAll") { for (const x of [...state.tracked]) untrack(x); return; }
+    const c = e.target.closest("[data-k]"); if (c) { state.focus = state.tracked[+c.dataset.k]; state.follow = true; renderTracked(); }
+  };
   $("#followBtn").onclick = () => { state.follow = !state.follow; renderTracked(); };
   $("#untrackBtn").onclick = () => untrack(t);
   box.querySelector(".conj-mini").onclick = (e) => {
@@ -551,11 +580,14 @@ function select(ev) {
     <div id="distPlot"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn small" id="replayBtn">Replay approach</button>
+      <button class="btn small" id="unselectBtn">Clear</button>
       <a class="btn small" target="_blank" rel="noopener" href="https://celestrak.org/satcat/table-satcat.php?CATNR=${ev.a}">${esc(A.name)} ↗</a>
       <a class="btn small" target="_blank" rel="noopener" href="https://celestrak.org/satcat/table-satcat.php?CATNR=${ev.b}">${esc(B.name)} ↗</a>
     </div>`;
   $("#replayBtn").onclick = () => showOnGlobe(ev);
+  $("#unselectBtn").onclick = () => clearSelection();
   showOnGlobe(ev);
+  updateClearBtn();
   distancePlot(ev);
 }
 

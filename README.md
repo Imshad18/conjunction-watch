@@ -16,6 +16,7 @@ Open http://localhost:8001. A 24-hour screening starts automatically on first la
 
 - Click any dot on the globe, or search any object by name or NORAD id (ISS, Hubble, Tiangong, Starlink-1008…) to highlight it, follow it and
   list its upcoming close approaches. Links like `http://localhost:8001/#track=ISS,Hubble` open with objects tracked.
+- Esc, the "Clear all" button or the × on a chip removes highlights; clicking a tracked dot again untracks it.
 - Time controls: play / pause, ±10 min, time warp from −3600× to 3600×, and a timeline across the screening window.
 - Click a conjunction to replay the encounter on the globe.
 
