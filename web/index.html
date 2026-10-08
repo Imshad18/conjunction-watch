@@ -100,6 +100,33 @@
       <div class="table-foot"><span class="muted" id="tableCount"></span><button class="btn small" id="moreBtn">Show more</button></div>
     </section>
 
+    <section class="card" id="record">
+      <div class="panel-title"><h3>Track record</h3><span>publish predictions before they happen, then prove them</span></div>
+      <div class="record-grid">
+        <div>
+          <div class="rstep"><h4>1. Your details</h4><div class="author" id="authorBox"></div></div>
+          <div class="rstep"><h4>2. Publish this run's predictions now</h4>
+            <p>Close approaches under 1 km (or with Pc ≥ 1e-5), with CDM files, archived on Zenodo under your name. The DOI timestamps your prediction before the event.
+              Token: <a target="_blank" rel="noopener" href="https://zenodo.org/account/settings/applications/tokens/new/">Zenodo → Applications</a> (deposit:write, deposit:actions).</p>
+            <div class="row"><input id="zToken" type="password" placeholder="Zenodo token" style="flex:1;min-width:160px">
+              <label class="muted"><input type="checkbox" id="zSandbox" checked> sandbox</label></div>
+            <div class="row" style="margin-top:6px"><button class="btn" id="predPkg">Download package</button><button class="btn primary" id="predZen">Publish predictions</button></div>
+            <div id="predNote" class="muted" style="margin-top:6px"></div></div>
+        </div>
+        <div>
+          <div class="rstep"><h4>3. Check what happened</h4>
+            <p>After each closest approach, newer orbital elements show whether either satellite changed its orbit. An unexplained change right after a predicted
+              close approach is evidence of an avoidance manoeuvre, a result independent analysts publish.</p>
+            <div class="row"><button class="btn" id="verifyBtn">Check outcomes</button><span id="verifyNote" class="muted"></span></div>
+            <div id="verifyOut"></div></div>
+          <div class="rstep"><h4>4. Publish the outcomes</h4>
+            <p>Archives the verification next to your predictions (linked by DOI), building a public track record.</p>
+            <div class="row"><input id="relDoi" placeholder="DOI of the predictions (from step 2)" style="flex:1;min-width:160px"><button class="btn" id="outZen">Publish outcomes</button></div>
+            <div id="outNote" class="muted" style="margin-top:6px"></div></div>
+        </div>
+      </div>
+    </section>
+
     <section class="grid-2">
       <div class="card"><div class="panel-title"><h3>Miss distance</h3><span>all conjunctions in the run</span></div><div id="missHist" class="plot"></div></div>
       <div class="card"><div class="panel-title"><h3>Altitude</h3><span>where close approaches happen</span></div><div id="altHist" class="plot"></div></div>

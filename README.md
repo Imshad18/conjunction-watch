@@ -32,6 +32,20 @@ Open http://localhost:8001. A 24-hour screening starts automatically on first la
 
 A 24-hour run over ~14,000 objects takes about a minute.
 
+## Building a track record
+
+There is no discovery credit for close approaches (operators get official warnings from the US Space Force),
+but predictions can be published and checked:
+
+1. Publish a run's closest approaches on Zenodo before they happen. The DOI timestamps the prediction.
+2. After closest approach, "Check outcomes" compares the element sets used for the prediction with the first
+   ones published afterwards. An unexplained orbit change (more than 300 m in semi-major axis beyond the
+   drag trend, or 0.01° in inclination) is reported as a likely avoidance manoeuvre.
+3. Publish the outcomes, linked to the predictions DOI.
+
+Each conjunction can also be exported as a CDM (CCSDS conjunction data message), with a drafted email to the
+operator and a short post.
+
 ## Limitations
 
 - Element sets (TLEs) are accurate to roughly a kilometre, and the error grows with age, so sub-kilometre

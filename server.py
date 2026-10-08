@@ -14,12 +14,12 @@ from pathlib import Path
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sgp4.exporter import export_tle
 
-from conjunction import catalog, screen
+from conjunction import catalog, contrib, screen, zenodo
 
 ROOT = Path(__file__).resolve().parent
 RUNS = ROOT / "runs"
@@ -114,6 +114,109 @@ def get_run(name: str):
     if not p.exists():
         raise HTTPException(404)
     return FileResponse(p, media_type="application/json")
+
+
+# ------------------------------------------------------------------ contribution
+class Author(BaseModel):
+    name: str = ""
+    affiliation: str = ""
+    email: str = ""
+    orcid: str = ""
+
+
+class EventRef(BaseModel):
+    run: str
+    a: int
+    b: int
+    tca: str
+    author: Author = Author()
+
+
+class ZenodoReq(BaseModel):
+    author: Author
+    token: str
+    sandbox: bool = True
+    related_doi: str = ""
+
+
+class PublishReq(BaseModel):
+    id: int
+    token: str
+    sandbox: bool = True
+
+
+def _run(name):
+    p = RUNS / Path(name).name
+    if not p.exists():
+        raise HTTPException(404, "Run not found")
+    return json.loads(p.read_text())
+
+
+def _event(run, a, b, tca):
+    for e in run["events"]:
+        if e["a"] == a and e["b"] == b and e["tca"] == tca:
+            return e
+    raise HTTPException(404, "Event not found")
+
+
+@app.post("/api/cdm")
+def get_cdm(ref: EventRef):
+    run = _run(ref.run)
+    return PlainTextResponse(contrib.cdm(run, _event(run, ref.a, ref.b, ref.tca)))
+
+
+@app.post("/api/notice")
+def get_notice(ref: EventRef):
+    run = _run(ref.run)
+    ev = _event(run, ref.a, ref.b, ref.tca)
+    return {"email": contrib.notice_email(run, ev, ref.author.model_dump()), "post": contrib.social_post(run, ev)}
+
+
+@app.get("/api/verify/{name}")
+def verify(name: str):
+    return contrib.verify(_run(name))
+
+
+@app.post("/api/predictions/{name}")
+def predictions_package(name: str, author: Author):
+    data, _ = contrib.prediction_package(_run(name), author.model_dump())
+    return Response(data, media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="predictions_{Path(name).stem}.zip"'})
+
+
+@app.post("/api/zenodo/predictions/{name}")
+def zenodo_predictions(name: str, req: ZenodoReq):
+    run = _run(name)
+    data, events = contrib.prediction_package(run, req.author.model_dump())
+    meta = contrib.zenodo_meta("predictions", run, req.author.model_dump(), zenodo.creator(req.author.model_dump()),
+                               extra=f"{len(events)} closest approaches, published before they occur.")
+    try:
+        return zenodo.draft({f"predictions_{Path(name).stem}.zip": data}, meta, req.token, req.sandbox)
+    except Exception as exc:
+        raise HTTPException(502, str(exc))
+
+
+@app.post("/api/zenodo/outcomes/{name}")
+def zenodo_outcomes(name: str, req: ZenodoReq):
+    run = _run(name)
+    ver = contrib.verify(run)
+    if not ver.get("available") or not ver["results"]:
+        raise HTTPException(400, "No verified outcomes yet")
+    data = contrib.outcome_package(run, ver, req.author.model_dump())
+    meta = contrib.zenodo_meta("outcomes", run, req.author.model_dump(), zenodo.creator(req.author.model_dump()),
+                               related_doi=req.related_doi or None,
+                               extra=f"Manoeuvres detected after {ver['counts']['maneuver']} of {len(ver['results'])} predicted events.")
+    try:
+        return zenodo.draft({f"outcomes_{Path(name).stem}.zip": data}, meta, req.token, req.sandbox)
+    except Exception as exc:
+        raise HTTPException(502, str(exc))
+
+
+@app.post("/api/zenodo-publish")
+def zenodo_publish(req: PublishReq):
+    try:
+        return zenodo.publish(req.id, req.token, req.sandbox)
+    except Exception as exc:
+        raise HTTPException(502, str(exc))
 
 
 _tle_cache = {}

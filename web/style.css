@@ -76,3 +76,16 @@
 .chip-t { display: inline-flex; align-items: center; gap: 4px; }
 .chip-x { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; padding: 0 0 0 4px; }
 .chip-x:hover { color: var(--fail); }
+.record-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.rstep { border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; }
+.rstep h4, .cbox h4 { margin: 0 0 4px; font-size: 13.5px; }
+.rstep p, .cbox p { margin: 0 0 8px; font-size: 12.5px; color: var(--muted); }
+.rstep .row, .cbox .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.author { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.author input { width: 100%; }
+.cbox { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 10px; }
+.text-box { width: 100%; height: 180px; font: 11.5px var(--mono); margin-top: 6px; }
+.ok-note { color: var(--pass); } .err-note { color: var(--fail); }
+.vrow { display: grid; grid-template-columns: 110px 1fr auto; gap: 8px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 12.5px; }
+.o-maneuver { color: var(--accent); font-weight: 600; } .o-waiting { color: var(--muted); } .o-no { color: var(--pass); }
+@media (max-width: 1000px) { .record-grid { grid-template-columns: 1fr; } }

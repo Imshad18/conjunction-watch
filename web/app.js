@@ -481,6 +481,7 @@ $("#runSelect").onchange = (e) => e.target.value && openRun(e.target.value, fals
 
 async function openRun(file, autoSelect) {
   const r = await api(`/api/runs/${encodeURIComponent(file)}`);
+  state.runFile = file;
   state.run = r; state.events = r.events; state.shown = 100; state.selected = null;
   const s = r.summary, start = new Date(r.start);
   $("#runInfo").textContent = `Showing run from ${start.toISOString().slice(0, 16).replace("T", " ")} UTC: ${r.objects.toLocaleString()} objects over ${r.hours} h, `
@@ -494,7 +495,7 @@ async function openRun(file, autoSelect) {
     metric("Starlink–Starlink", s.by_category.starlink.toLocaleString(), "operator manoeuvres autonomously"),
     metric("Closest approach", top ? `${fmt(top.miss_km * 1000, 0)} m` : "—", top ? `${esc(name(top.a))} / ${esc(name(top.b))}` : ""),
   ].join("");
-  renderHists(); applyFilter();
+  renderHists(); applyFilter(); syncRecord();
   if (state.tracked.length) renderTracked();
   if (autoSelect && state.view.length && !location.hash.includes("track=")) {
     if (state.catalog) select(state.view[0]); else state.pendingSelect = state.view[0];
@@ -584,6 +585,26 @@ function select(ev) {
       <a class="btn small" target="_blank" rel="noopener" href="https://celestrak.org/satcat/table-satcat.php?CATNR=${ev.a}">${esc(A.name)} ↗</a>
       <a class="btn small" target="_blank" rel="noopener" href="https://celestrak.org/satcat/table-satcat.php?CATNR=${ev.b}">${esc(B.name)} ↗</a>
     </div>`;
+  const cb = document.createElement("div");
+  cb.className = "cbox";
+  cb.innerHTML = `<h4>Share this prediction</h4>
+    <p>Official warnings go to operators from the US Space Force (via <a target="_blank" rel="noopener" href="https://www.space-track.org/">Space-Track</a>, which also lists operator contacts).
+      Compare with CelesTrak's own screening on <a target="_blank" rel="noopener" href="https://celestrak.org/SOCRATES/">SOCRATES</a>.</p>
+    <div class="row"><button class="btn small" id="cdmBtn">Download CDM</button><button class="btn small" id="noticeBtn">Write operator email</button><button class="btn small" id="postBtn">Write post</button></div>
+    <div id="noticeOut"></div>`;
+  $("#detail").appendChild(cb);
+  const ref = () => ({ run: state.runFile, a: ev.a, b: ev.b, tca: ev.tca, author: readAuthor() });
+  $("#cdmBtn").onclick = async () => {
+    const res = await fetch("/api/cdm", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ref()) });
+    const el = document.createElement("a"); el.href = URL.createObjectURL(new Blob([await res.text()], { type: "text/plain" }));
+    el.download = `CDM_${ev.a}_${ev.b}_${ev.tca.slice(0, 19).replace(/:/g, "")}.txt`; el.click();
+  };
+  const showText = (t) => {
+    $("#noticeOut").innerHTML = `<textarea class="text-box" id="noticeText">${esc(t)}</textarea><div class="row"><button class="btn small" id="noticeCopy">Copy</button></div>`;
+    $("#noticeCopy").onclick = () => { navigator.clipboard.writeText($("#noticeText").value); toast("Copied"); };
+  };
+  $("#noticeBtn").onclick = async () => showText((await api("/api/notice", { method: "POST", body: JSON.stringify(ref()) })).email);
+  $("#postBtn").onclick = async () => showText((await api("/api/notice", { method: "POST", body: JSON.stringify(ref()) })).post);
   $("#replayBtn").onclick = () => showOnGlobe(ev);
   $("#unselectBtn").onclick = () => clearSelection();
   showOnGlobe(ev);
@@ -651,6 +672,68 @@ $("#runBtn").onclick = async () => {
   watchJob(j.id);
 };
 
+/* ---------------- track record ---------------- */
+const lsGet = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+function readAuthor() {
+  if (!$("#auName")) return lsGet("author", {});
+  const a = { name: $("#auName").value.trim(), affiliation: $("#auAff").value.trim(), email: $("#auEmail").value.trim(), orcid: $("#auOrcid").value.trim() };
+  lsSet("author", a); return a;
+}
+function zenodoSettings() { const v = { token: $("#zToken").value.trim(), sandbox: $("#zSandbox").checked }; lsSet("zenodo", v); return v; }
+function publishFlow(url, body, note) {
+  return async () => {
+    const z = zenodoSettings(), a = readAuthor();
+    if (!z.token) { note.textContent = "Paste a Zenodo token first."; return; }
+    if (!a.name) { note.textContent = "Enter your name in step 1."; return; }
+    if (!state.runFile) { note.textContent = "No run loaded."; return; }
+    note.textContent = "Uploading…";
+    try {
+      const d = await api(url(), { method: "POST", body: JSON.stringify({ author: a, token: z.token, sandbox: z.sandbox, ...body() }) });
+      note.innerHTML = `Draft ready${d.doi ? `, DOI reserved: <b class="mono">${esc(d.doi)}</b>` : ""}. <a target="_blank" rel="noopener" href="${esc(d.html)}">Review ↗</a> <button class="btn small">Publish</button>`;
+      if (d.doi && url().includes("predictions")) { $("#relDoi").value = d.doi; lsSet("predDoi:" + state.runFile, d.doi); }
+      note.querySelector("button").onclick = async () => {
+        if (!confirm(`Publish on ${z.sandbox ? "the Zenodo TEST server" : "Zenodo"}? Published records and DOIs are permanent.`)) return;
+        try { const p = await api("/api/zenodo-publish", { method: "POST", body: JSON.stringify({ id: d.id, token: z.token, sandbox: z.sandbox }) });
+          note.innerHTML = `<span class="ok-note">Published: <a target="_blank" rel="noopener" href="${esc(p.url)}">${esc(p.doi)}</a></span>`; }
+        catch (e) { note.innerHTML = `<span class="err-note">${esc(e.message)}</span>`; }
+      };
+    } catch (e) { note.innerHTML = `<span class="err-note">${esc(e.message)}</span>`; }
+  };
+}
+function initRecord() {
+  const a = lsGet("author", {}), z = lsGet("zenodo", { sandbox: true });
+  $("#authorBox").innerHTML = `<input id="auName" placeholder="Your name" value="${esc(a.name || "")}"><input id="auAff" placeholder="Affiliation or Independent" value="${esc(a.affiliation || "")}">
+    <input id="auEmail" placeholder="Email" value="${esc(a.email || "")}"><input id="auOrcid" placeholder="ORCID (optional)" value="${esc(a.orcid || "")}">`;
+  for (const id of ["#auName", "#auAff", "#auEmail", "#auOrcid"]) $(id).onchange = readAuthor;
+  $("#zToken").value = z.token || ""; $("#zSandbox").checked = z.sandbox !== false;
+  $("#zToken").onchange = zenodoSettings; $("#zSandbox").onchange = zenodoSettings;
+  $("#predPkg").onclick = async () => {
+    const res = await fetch(`/api/predictions/${encodeURIComponent(state.runFile)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(readAuthor()) });
+    const el = document.createElement("a"); el.href = URL.createObjectURL(await res.blob()); el.download = `predictions_${state.runFile.replace(".json", "")}.zip`; el.click();
+  };
+  $("#predZen").onclick = publishFlow(() => `/api/zenodo/predictions/${encodeURIComponent(state.runFile)}`, () => ({}), $("#predNote"));
+  $("#outZen").onclick = publishFlow(() => `/api/zenodo/outcomes/${encodeURIComponent(state.runFile)}`, () => ({ related_doi: $("#relDoi").value.trim() }), $("#outNote"));
+  $("#verifyBtn").onclick = async () => {
+    $("#verifyNote").textContent = "Comparing with the newest element sets…";
+    const v = await api(`/api/verify/${encodeURIComponent(state.runFile)}`);
+    if (!v.available) { $("#verifyNote").textContent = v.reason; $("#verifyOut").innerHTML = ""; return; }
+    $("#verifyNote").textContent = v.results.length ? `${v.counts.maneuver} manoeuvre(s), ${v.counts["no maneuver"]} without, ${v.counts.waiting} awaiting newer data`
+      : "No predicted close approach has happened yet. Check back after the first TCA.";
+    $("#verifyOut").innerHTML = v.results.map((r) => {
+      const cls = r.outcome === "maneuver" ? "o-maneuver" : r.outcome === "waiting" ? "o-waiting" : "o-no";
+      const txt = r.outcome === "maneuver" ? `manoeuvre: ${r.maneuvered.join(", ")}` : r.outcome;
+      return `<div class="vrow" title="${esc(r.a_check.text + " / " + r.b_check.text)}"><span class="mono">${r.tca.slice(5, 16).replace("T", " ")}</span>
+        <span>${esc(name(r.a))} / ${esc(name(r.b))} · ${fmt(r.miss_km * 1000, 0)} m</span><span class="${cls}">${esc(txt)}</span></div>`;
+    }).join("");
+  };
+}
+function syncRecord() {
+  if (!state.runFile) return;
+  $("#relDoi").value = lsGet("predDoi:" + state.runFile, "");
+  $("#verifyOut").innerHTML = ""; $("#verifyNote").textContent = ""; $("#predNote").textContent = ""; $("#outNote").textContent = "";
+}
+
 /* ---------------- theme ---------------- */
 function initTheme() {
   try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
@@ -666,6 +749,7 @@ function initTheme() {
 
 (async function main() {
   initTheme();
+  initRecord();
   setPlaying(true); setSpeed(60);
   await initGlobe();
   initPicking();

@@ -18,6 +18,9 @@ from sgp4.api import Satrec, SatrecArray, jday
 
 R_EARTH = 6378.137
 MAX_REL_SPEED = 16.0  # km/s, head-on LEO encounter
+OMM_KEYS = ("OBJECT_NAME", "OBJECT_ID", "EPOCH", "MEAN_MOTION", "ECCENTRICITY", "INCLINATION", "RA_OF_ASC_NODE",
+            "ARG_OF_PERICENTER", "MEAN_ANOMALY", "EPHEMERIS_TYPE", "CLASSIFICATION_TYPE", "NORAD_CAT_ID", "ELEMENT_SET_NO",
+            "REV_AT_EPOCH", "BSTAR", "MEAN_MOTION_DOT", "MEAN_MOTION_DDOT")
 HARD_BODY_M = {"payload": 5.0, "rocket body": 4.0, "debris": 0.5}
 
 
@@ -210,5 +213,7 @@ def screen(objs, hours=24.0, threshold_km=10.0, step_s=20.0, start=None, progres
             "name": o["OBJECT_NAME"], "id": o.get("OBJECT_ID"), "kind": o["kind"], "family": o["family"],
             "group": o["group"], "epoch": o["EPOCH"], "age_days": round(o["age_days"], 2),
             "inclination": o["INCLINATION"], "period_min": round(1440 / float(o["MEAN_MOTION"]), 2),
+            # elements used for the prediction, kept so the outcome can be checked after closest approach
+            "omm": {k: o[k] for k in OMM_KEYS if k in o},
         } for o in objs if int(o["NORAD_CAT_ID"]) in used},
     }
