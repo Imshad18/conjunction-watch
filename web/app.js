@@ -148,6 +148,50 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
+/* ---------------- click / hover on the globe ---------------- */
+function pickAt(clientX, clientY, radiusPx = 9) {
+  // nearest visible object to the cursor, in screen space
+  if (!G.points) return -1;
+  const rect = G.renderer.domElement.getBoundingClientRect();
+  const mx = clientX - rect.left, my = clientY - rect.top, w = rect.width, h = rect.height;
+  const arr = G.points.geometry.attributes.position.array, cam = G.camera.position, v = new THREE.Vector3();
+  let best = -1, bestD = radiusPx * radiusPx;
+  for (let i = 0; i < arr.length / 3; i++) {
+    v.set(arr[i * 3], arr[i * 3 + 1], arr[i * 3 + 2]);
+    if (v.x === 0 && v.y === 0 && v.z === 0) continue;
+    const p = v.clone().project(G.camera);
+    if (p.z > 1) continue;
+    const dx = (p.x + 1) / 2 * w - mx, dy = (1 - p.y) / 2 * h - my, d = dx * dx + dy * dy;
+    if (d < bestD && !occluded(cam, v)) { bestD = d; best = i; }
+  }
+  return best;
+}
+function initPicking() {
+  const el = G.renderer.domElement;
+  let down = null;
+  el.addEventListener("pointerdown", (e) => { down = [e.clientX, e.clientY]; });
+  el.addEventListener("pointerup", (e) => {
+    if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4) return; // it was a drag
+    const i = pickAt(e.clientX, e.clientY);
+    if (i >= 0) track(i);
+  });
+  const tip = document.createElement("div");
+  tip.className = "hover-tip hidden";
+  $("#globe").parentElement.appendChild(tip);
+  let last = 0;
+  el.addEventListener("pointermove", (e) => {
+    if (e.buttons || performance.now() - last < 60) return;
+    last = performance.now();
+    const i = pickAt(e.clientX, e.clientY);
+    if (i < 0) { tip.classList.add("hidden"); el.style.cursor = ""; return; }
+    const o = state.catalog[i], rect = el.getBoundingClientRect();
+    tip.innerHTML = `<b>${esc(o[1])}</b> <span>${o[0]} · ${kindKey(o)} · click for details</span>`;
+    tip.style.left = `${e.clientX - rect.left + 14}px`; tip.style.top = `${e.clientY - rect.top + 10}px`;
+    tip.classList.remove("hidden"); el.style.cursor = "pointer";
+  });
+  el.addEventListener("pointerleave", () => tip.classList.add("hidden"));
+}
+
 /* ---------------- time controls ---------------- */
 function runWindow() {
   if (!state.run) return [Date.now() - 3600e3, Date.now() + 24 * 3600e3];
@@ -314,6 +358,7 @@ function track(i) {
   const r = propagate(s, new Date(state.sim));
   if (r) lookAt(eciToVec(r.position), 2.2);
   renderTracked();
+  if (innerWidth < 1100) $("#tracked").scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 function untrack(t) {
   G.trackGroup.remove(t.mesh); if (t.line) G.trackGroup.remove(t.line);
@@ -591,6 +636,7 @@ function initTheme() {
   initTheme();
   setPlaying(true); setSpeed(60);
   await initGlobe();
+  initPicking();
   loadCatalog().catch((e) => toast("Catalogue: " + e.message));
   const jobs = await api("/api/jobs").catch(() => []);
   const active = jobs.find((j) => ["queued", "running"].includes(j.status));
